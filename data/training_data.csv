@@ -1,0 +1,33 @@
+text,label
+"Invoice number 4521 due on March 15 total amount owed 1250 dollars",invoice
+"Please remit payment within 30 days invoice total balance due",invoice
+"Bill to customer account invoice date quantity unit price subtotal tax total",invoice
+"Invoice for services rendered payment terms net 30 amount due",invoice
+"Purchase order invoice number vendor total charges due upon receipt",invoice
+"Statement of account invoice summary outstanding balance payment due date",invoice
+"Tax invoice GST amount subtotal grand total payable",invoice
+"Invoice billing address shipping address item description quantity price",invoice
+"This agreement is entered into between the parties on the effective date",contract
+"The undersigned parties agree to the following terms and conditions",contract
+"This contract shall remain in effect until terminated by either party",contract
+"Whereas the parties wish to enter into this agreement for services",contract
+"Non disclosure agreement confidential information party obligations",contract
+"Terms of service agreement governing law jurisdiction dispute resolution",contract
+"Employment contract salary benefits termination clause probation period",contract
+"Lease agreement tenant landlord rent security deposit lease term",contract
+"This is to certify that the passport holder is a citizen of the issuing country",id_document
+"National identification card date of birth place of birth nationality",id_document
+"Driver license identification number expiration date issuing authority",id_document
+"Passport number surname given names date of issue date of expiry",id_document
+"Government issued identification photo signature holder information",id_document
+"Residence permit card holder name identification number valid until",id_document
+"Social security card number issued to the bearer for identification",id_document
+"Voter identification card registered address polling station number",id_document
+"This certificate is awarded in recognition of successful completion",certificate
+"Certificate of completion this is to certify that the recipient has completed",certificate
+"Diploma awarded upon successful completion of the degree requirements",certificate
+"Certificate of achievement presented in recognition of outstanding performance",certificate
+"This certifies that the bearer has successfully passed the examination",certificate
+"Birth certificate registered name date of birth place of birth parents",certificate
+"Certificate of incorporation company registration number issued date",certificate
+"Training certificate awarded for successful completion of the course",certificate
