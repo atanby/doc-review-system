@@ -17,3 +17,19 @@ class DocumentResponse(BaseModel):
 
 class DocumentStatusUpdate(BaseModel):
     status: str
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    role: Optional[str] = "reviewer"
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    role: str
+
+    class Config:
+        from_attributes = True
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
