@@ -9,6 +9,7 @@ import models
 import schemas
 from auth import hash_password, verify_password, create_access_token
 from dependencies import get_current_user, require_role
+from classify import predict_document_type
 
 app = FastAPI()
 
@@ -113,3 +114,19 @@ def delete_document(
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted"}
+@app.post("/documents/{document_id}/classify", response_model=schemas.DocumentResponse)
+def classify_document(
+    document_id: int,
+    request: schemas.ClassifyRequest,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    doc = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    predicted_type = predict_document_type(request.text)
+    doc.document_type = predicted_type
+    db.commit()
+    db.refresh(doc)
+    return doc
