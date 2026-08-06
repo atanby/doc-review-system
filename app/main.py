@@ -10,6 +10,9 @@ import schemas
 from auth import hash_password, verify_password, create_access_token
 from dependencies import get_current_user, require_role
 from classify import predict_document_type
+from fastapi import UploadFile, File
+from extraction import extract_text
+from fields import extract_fields, fields_to_json
 
 app = FastAPI()
 
@@ -101,6 +104,30 @@ def update_status(
     db.commit()
     db.refresh(doc)
     return doc
+@app.post("/documents/upload", response_model=schemas.DocumentResponse)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    file_bytes = await file.read()
+
+    try:
+        text = extract_text(file.filename, file_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    fields = extract_fields(text)
+
+    new_doc = models.Document(
+        filename=file.filename,
+        extracted_text=text,
+        extracted_fields=fields_to_json(fields),
+    )
+    db.add(new_doc)
+    db.commit()
+    db.refresh(new_doc)
+    return new_doc
 
 @app.delete("/documents/{document_id}")
 def delete_document(

@@ -10,6 +10,8 @@ class DocumentResponse(BaseModel):
     filename: str
     status: str
     document_type: Optional[str] = None
+    extracted_text: Optional[str] = None
+    extracted_fields: Optional[str] = None
     uploaded_at: datetime
 
     class Config:
