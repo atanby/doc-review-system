@@ -67,3 +67,30 @@ def test_classify_document():
     client.post("/register", json={"username": "testuser5", "password": "pass123", "role": "reviewer"})
     login = client.post("/login", data={"username": "testuser5", "password": "pass123"})
     token = login.json()["access_token"]
+def test_review_queue_and_history():
+    client.post("/register", json={"username": "testuser7", "password": "pass123", "role": "reviewer"})
+    login = client.post("/login", data={"username": "testuser7", "password": "pass123"})
+    token = login.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    create = client.post("/documents", json={"filename": "history_test.pdf"}, headers=headers)
+    doc_id = create.json()["id"]
+
+    queue_response = client.get("/review-queue", headers=headers)
+    assert queue_response.status_code == 200
+    assert any(d["id"] == doc_id for d in queue_response.json())
+
+    update_response = client.patch(
+        f"/documents/{doc_id}/status",
+        json={"status": "approved", "comment": "Test approval"},
+        headers=headers,
+    )
+    assert update_response.status_code == 200
+
+    history_response = client.get(f"/documents/{doc_id}/history", headers=headers)
+    assert history_response.status_code == 200
+    history = history_response.json()
+    assert len(history) == 1
+    assert history[0]["old_status"] == "pending"
+    assert history[0]["new_status"] == "approved"
+    assert history[0]["comment"] == "Test approval"

@@ -19,6 +19,11 @@ class DocumentResponse(BaseModel):
 
 class DocumentStatusUpdate(BaseModel):
     status: str
+    comment: Optional[str] = None
+
+class ClassifyRequest(BaseModel):
+    text: str
+
 class UserCreate(BaseModel):
     username: str
     password: str
@@ -35,5 +40,15 @@ class UserResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-class ClassifyRequest(BaseModel):
-    text: str
+
+class StatusHistoryResponse(BaseModel):
+    id: int
+    document_id: int
+    changed_by_id: int
+    old_status: str
+    new_status: str
+    comment: Optional[str] = None
+    changed_at: datetime
+
+    class Config:
+        from_attributes = True

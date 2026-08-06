@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -10,11 +10,12 @@ import schemas
 from auth import hash_password, verify_password, create_access_token
 from dependencies import get_current_user, require_role
 from classify import predict_document_type
-from fastapi import UploadFile, File
 from extraction import extract_text
 from fields import extract_fields, fields_to_json
 
 app = FastAPI()
+
+# ---- Basic checks ----
 
 @app.get("/")
 def read_root():
@@ -54,7 +55,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     token = create_access_token(data={"sub": user.username, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
-# ---- Document CRUD (now with protection where it matters) ----
+# ---- Document CRUD ----
 
 @app.post("/documents", response_model=schemas.DocumentResponse)
 def create_document(
@@ -100,34 +101,23 @@ def update_status(
     doc = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    old_status = doc.status
     doc.status = update.status
     db.commit()
     db.refresh(doc)
-    return doc
-@app.post("/documents/upload", response_model=schemas.DocumentResponse)
-async def upload_document(
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    file_bytes = await file.read()
 
-    try:
-        text = extract_text(file.filename, file_bytes)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-    fields = extract_fields(text)
-
-    new_doc = models.Document(
-        filename=file.filename,
-        extracted_text=text,
-        extracted_fields=fields_to_json(fields),
+    history_entry = models.StatusHistory(
+        document_id=doc.id,
+        changed_by_id=current_user.id,
+        old_status=old_status,
+        new_status=update.status,
+        comment=update.comment,
     )
-    db.add(new_doc)
+    db.add(history_entry)
     db.commit()
-    db.refresh(new_doc)
-    return new_doc
+
+    return doc
 
 @app.delete("/documents/{document_id}")
 def delete_document(
@@ -141,6 +131,9 @@ def delete_document(
     db.delete(doc)
     db.commit()
     return {"message": "Document deleted"}
+
+# ---- Classification ----
+
 @app.post("/documents/{document_id}/classify", response_model=schemas.DocumentResponse)
 def classify_document(
     document_id: int,
@@ -157,3 +150,79 @@ def classify_document(
     db.commit()
     db.refresh(doc)
     return doc
+
+# ---- Upload & extraction ----
+
+@app.post("/documents/upload", response_model=schemas.DocumentResponse)
+async def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    file_bytes = await file.read()
+
+    try:
+        text_content = extract_text(file.filename, file_bytes)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    extracted = extract_fields(text_content)
+
+    new_doc = models.Document(
+        filename=file.filename,
+        extracted_text=text_content,
+        extracted_fields=fields_to_json(extracted),
+    )
+    db.add(new_doc)
+    db.commit()
+    db.refresh(new_doc)
+    return new_doc
+
+# ---- Review workflow ----
+
+@app.get("/review-queue", response_model=List[schemas.DocumentResponse])
+def review_queue(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("reviewer")),
+):
+    return db.query(models.Document).filter(models.Document.status == "pending").all()
+@app.get("/review-queue", response_model=List[schemas.DocumentResponse])
+def review_queue(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(require_role("reviewer")),
+):
+    return db.query(models.Document).filter(models.Document.status == "pending").all()
+@app.get("/documents/{document_id}/history", response_model=List[schemas.StatusHistoryResponse])
+def get_document_history(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    doc = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return (
+        db.query(models.StatusHistory)
+        .filter(models.StatusHistory.document_id == document_id)
+        .order_by(models.StatusHistory.changed_at)
+        .all()
+    )
+
+@app.get("/documents/{document_id}/history", response_model=List[schemas.StatusHistoryResponse])
+def get_document_history(
+    document_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+
+    doc = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return (
+        db.query(models.StatusHistory)
+        .filter(models.StatusHistory.document_id == document_id)
+        .order_by(models.StatusHistory.changed_at)
+        .all()
+    )
