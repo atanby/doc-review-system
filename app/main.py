@@ -12,9 +12,22 @@ from dependencies import get_current_user, require_role
 from classify import predict_document_type
 from extraction import extract_text
 from fields import extract_fields, fields_to_json
+from logging_config import setup_logging, logger
+
+setup_logging()
 
 app = FastAPI()
 
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal error occurred. Please try again later."},
+    )
 # ---- Basic checks ----
 
 @app.get("/")
@@ -51,7 +64,9 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
+        logger.warning(f"Failed login attempt for username: {form_data.username}")
         raise HTTPException(status_code=401, detail="Incorrect username or password")
+    logger.info(f"User logged in: {user.username}")
     token = create_access_token(data={"sub": user.username, "role": user.role})
     return {"access_token": token, "token_type": "bearer"}
 
@@ -117,6 +132,7 @@ def update_status(
     db.add(history_entry)
     db.commit()
 
+    logger.info(f"Document {doc.id} status changed: {old_status} -> {update.status} by {current_user.username}")
     return doc
 
 @app.delete("/documents/{document_id}")
@@ -186,28 +202,6 @@ def review_queue(
     current_user: models.User = Depends(require_role("reviewer")),
 ):
     return db.query(models.Document).filter(models.Document.status == "pending").all()
-@app.get("/review-queue", response_model=List[schemas.DocumentResponse])
-def review_queue(
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(require_role("reviewer")),
-):
-    return db.query(models.Document).filter(models.Document.status == "pending").all()
-@app.get("/documents/{document_id}/history", response_model=List[schemas.StatusHistoryResponse])
-def get_document_history(
-    document_id: int,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user),
-):
-    doc = db.query(models.Document).filter(models.Document.id == document_id).first()
-    if not doc:
-        raise HTTPException(status_code=404, detail="Document not found")
-
-    return (
-        db.query(models.StatusHistory)
-        .filter(models.StatusHistory.document_id == document_id)
-        .order_by(models.StatusHistory.changed_at)
-        .all()
-    )
 
 @app.get("/documents/{document_id}/history", response_model=List[schemas.StatusHistoryResponse])
 def get_document_history(
@@ -215,7 +209,6 @@ def get_document_history(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-
     doc = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

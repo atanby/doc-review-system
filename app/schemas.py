@@ -1,9 +1,9 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Literal
 
 class DocumentCreate(BaseModel):
-    filename: str
+    filename: str = Field(min_length=1, max_length=255)
 
 class DocumentResponse(BaseModel):
     id: int
@@ -18,15 +18,15 @@ class DocumentResponse(BaseModel):
         from_attributes = True
 
 class DocumentStatusUpdate(BaseModel):
-    status: str
+    status: Literal["pending", "approved", "rejected"]
     comment: Optional[str] = None
 
 class ClassifyRequest(BaseModel):
-    text: str
+    text: str = Field(min_length=1)
 
 class UserCreate(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=3, max_length=50)
+    password: str = Field(min_length=8)
     role: Optional[str] = "reviewer"
 
 class UserResponse(BaseModel):
